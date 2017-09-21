@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">NewYorkTimesSearch</string>
+    <string name="search">Search</string>
+    <string name="begin_date">Begin Date</string>
+    <string name="enterDate">Enter the begin date</string>
+    <string name="sort_order">Sort Order</string>
+    <string name="old">Oldest</string>
+    <string name="newest">Newest</string>
+    <string name="news_desk">News Desk Values</string>
+    <string name="arts">Arts</string>
+    <string name="sports">Sports</string>
+    <string name="fashion">Fashion and Style</string>
+    <string name="save">SAVE</string>
+</resources>

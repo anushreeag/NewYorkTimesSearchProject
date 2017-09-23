@@ -1,5 +1,8 @@
 package com.cosmic.newyorktimessearch.model;
 
+import android.os.Parcel;
+import android.os.Parcelable;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -11,11 +14,35 @@ import java.util.ArrayList;
  * Created by anushree on 9/19/2017.
  */
 
-public class Article implements Serializable {
+public class Article implements Parcelable {
 
     String web_url;
     String thumbnail;
     String title;
+    String new_desk;
+    String snippet;
+
+
+    protected Article(Parcel in) {
+        web_url = in.readString();
+        thumbnail = in.readString();
+        title = in.readString();
+        new_desk = in.readString();
+        snippet = in.readString();
+
+    }
+
+    public static final Creator<Article> CREATOR = new Creator<Article>() {
+        @Override
+        public Article createFromParcel(Parcel in) {
+            return new Article(in);
+        }
+
+        @Override
+        public Article[] newArray(int size) {
+            return new Article[size];
+        }
+    };
 
     public String getWeb_url() {
         return web_url;
@@ -28,6 +55,13 @@ public class Article implements Serializable {
     public String getTitle() {
         return title;
     }
+    public String getNew_desk() {
+        return new_desk;
+    }
+
+    public String getSnippet() {
+        return snippet;
+    }
 
 
 
@@ -35,10 +69,15 @@ public class Article implements Serializable {
         this.web_url = object.getString("web_url");
         this.title = object.getJSONObject("headline").getString("main");
         JSONArray multimedia = object.getJSONArray("multimedia");
-        if(multimedia.length()>0)
-            this.thumbnail = "http://www.nytimes.com/"+multimedia.getJSONObject(0).getString("url");
-        else
+        if(multimedia.length()>0) {
+            this.thumbnail = "http://www.nytimes.com/" + multimedia.getJSONObject(0).getString("url");
+        }
+        else {
             this.thumbnail = "";
+        }
+        this.new_desk = object.getString("new_desk");
+        this.snippet = object.getString("snippet");
+
     }
 
 
@@ -54,5 +93,20 @@ public class Article implements Serializable {
 
         }
         return articlelist;
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel parcel, int i) {
+
+        parcel.writeString(web_url);
+        parcel.writeString(thumbnail);
+        parcel.writeString(title);
+        parcel.writeString(new_desk);
+        parcel.writeString(snippet);
     }
 }

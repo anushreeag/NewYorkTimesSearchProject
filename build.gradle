@@ -18,6 +18,17 @@ allprojects {
     }
 }
 
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath 'me.tatarka:gradle-retrolambda:3.2.3'
+    }
+}
+
+
 task clean(type: Delete) {
     delete rootProject.buildDir
 }

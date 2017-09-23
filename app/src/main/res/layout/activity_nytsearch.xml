@@ -1,39 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    tools:context="com.cosmic.newyorktimessearch.activity.NYTSearchActivity">
-
-
-    <EditText
-        android:id="@+id/query"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentTop="true"
-        android:layout_toLeftOf="@+id/search_btn"
-        android:ems="10"
-        android:inputType="textPersonName"
-        android:hint="          Enter a search query" />
-
-    <Button
-        android:id="@+id/search_btn"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentTop="true"
-        android:layout_marginEnd="5dp"
-        android:text="@string/search"
-        android:onClick="searchArticle"/>
-    <android.support.v7.widget.RecyclerView
-        android:id="@+id/nyView"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <RelativeLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_below="@+id/query"
-        android:layout_marginTop="10dp"
-        android:layout_alignParentStart="true" />
+        android:fitsSystemWindows="true"
+        tools:context="com.cosmic.newyorktimessearch.activity.NYTSearchActivity">
+
+        <include
+            android:id="@+id/appBar"
+        layout="@layout/toolbar_main"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+        <android.support.v7.widget.RecyclerView
+            android:id="@+id/nyView"
+            android:layout_below="@+id/appBar"
+            android:layout_marginTop="10dp"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_alignParentStart="true" />
+
+        <TextView
+            android:id="@+id/empty_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:visibility="gone"
+            android:textSize="@dimen/emptyTextSize"
+            android:textColor="@android:color/holo_blue_dark"
+            android:text="@string/no_data_available" />
 
 
-</RelativeLayout>
+    </RelativeLayout>
+</layout>

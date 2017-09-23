@@ -2,7 +2,7 @@ package com.cosmic.newyorktimessearch.fragment;
 
 import android.app.DatePickerDialog;
 import android.content.Context;
-import android.content.SharedPreferences;
+import android.databinding.DataBindingUtil;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v4.app.DialogFragment;
@@ -19,6 +19,8 @@ import android.widget.Spinner;
 
 import com.cosmic.newyorktimessearch.R;
 import com.cosmic.newyorktimessearch.activity.NYTSearchActivity;
+import com.cosmic.newyorktimessearch.databinding.ActivityWebViewBinding;
+import com.cosmic.newyorktimessearch.databinding.FilterLayoutBinding;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -38,10 +40,9 @@ public class SearchFilterFragment extends DialogFragment {
     CheckBox arts;
     CheckBox sports;
     CheckBox fashion;
-
-    SharedPreferences pref;
-    SharedPreferences.Editor editor;
+    private Bundle data;
     Button save;
+    private FilterLayoutBinding binding;
 
     @Override
     public void onAttach(Context context) {
@@ -50,68 +51,60 @@ public class SearchFilterFragment extends DialogFragment {
         mCtx = context;
     }
 
+
+
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
 
-
-        View view = inflater.inflate(R.layout.filter_layout,container,false);
-
-        begin_date = (EditText) view.findViewById(R.id.edit_begin);
+        binding = DataBindingUtil.inflate(inflater,R.layout.filter_layout,container,false);
+        data = getArguments();
+        View view = binding.getRoot();
+        begin_date = binding.editBegin;
         begin_date.setFocusable(false);
-        sort_spin = (Spinner) view.findViewById(R.id.spinner);
-        arts = (CheckBox) view.findViewById(R.id.arts_box);
-        sports = (CheckBox) view.findViewById(R.id.sport_box);
-        fashion = (CheckBox) view.findViewById(R.id.fashion_box);
-        save = (Button) view.findViewById(R.id.save);
-
-        pref = mCtx.getSharedPreferences(NYTSearchActivity.PREFERENCES,Context.MODE_PRIVATE);
-        editor = pref.edit();
-
-
+        sort_spin = binding.spinner;
+        arts = binding.artsBox;
+        sports = binding.sportBox;
+        fashion = binding.fashionBox;
+        save = binding.save;
 
         myCalendar = Calendar.getInstance();
-        begin_date.setOnClickListener(new View.OnClickListener() {
+        String beginDate = data.getString(NYTSearchActivity.BEGIN_DATE,"");
+        if(!beginDate.isEmpty())
+        {
+            myCalendar.set(Calendar.YEAR,Integer.parseInt(beginDate.split("/")[2]));
+            myCalendar.set(Calendar.MONTH, Integer.parseInt(beginDate.split("/")[0])-1);
+            myCalendar.set(Calendar.DAY_OF_MONTH, Integer.parseInt(beginDate.split("/")[1]));
+        }
 
-            @Override
-            public void onClick(View v) {
-                // TODO Auto-generated method stub
+        begin_date.setOnClickListener(v -> {
+            DatePickerDialog pickerDialog = new DatePickerDialog(mCtx, date, myCalendar
+                    .get(Calendar.YEAR), myCalendar.get(Calendar.MONTH),
+                    myCalendar.get(Calendar.DAY_OF_MONTH));
+            pickerDialog.show();
 
-
-                DatePickerDialog pickerDialog = new DatePickerDialog(mCtx, date, myCalendar
-                        .get(Calendar.YEAR), myCalendar.get(Calendar.MONTH),
-                        myCalendar.get(Calendar.DAY_OF_MONTH));
-                pickerDialog.show();
-
-            }
         });
-
-
         ArrayList<String> sortOrderList = new ArrayList<>();
         sortOrderList.add(mCtx.getResources().getString(R.string.old));
         sortOrderList.add(mCtx.getResources().getString(R.string.newest));
         ArrayAdapter<String> sortAdp = new ArrayAdapter<String>(mCtx,android.R.layout.simple_spinner_dropdown_item,sortOrderList);
         sort_spin.setAdapter(sortAdp);
-
-        save.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                saveFilter();
-            }
-        });
-
-        begin_date.setText(pref.getString(NYTSearchActivity.BEGIN_DATE,""));
-        sort_spin.setSelection(pref.getInt(NYTSearchActivity.SORT_ORDER,0));
-        arts.setChecked(pref.getBoolean(NYTSearchActivity.ARTS,false));
-        sports.setChecked(pref.getBoolean(NYTSearchActivity.SPORTS,false));
-        fashion.setChecked(pref.getBoolean(NYTSearchActivity.FASHION,false));
-
+        save.setOnClickListener(view1 -> saveFilter());
+        fillDataFromBundle();
         return view;
+    }
+
+    private void fillDataFromBundle(){
+        begin_date.setText(data.getString(NYTSearchActivity.BEGIN_DATE,""));
+        sort_spin.setSelection(data.getInt(NYTSearchActivity.SORT_ORDER));
+        arts.setChecked(data.getBoolean(NYTSearchActivity.ARTS,false));
+        sports.setChecked(data.getBoolean(NYTSearchActivity.SPORTS,false));
+        fashion.setChecked(data.getBoolean(NYTSearchActivity.FASHION,false));
     }
 
 
     private void updateLabel() {
-        String myFormat = "MM/dd/yyyy"; //In which you need put here
+        String myFormat = "MM/dd/yyyy"; //date format
         SimpleDateFormat sdf = new SimpleDateFormat(myFormat, Locale.US);
 
         begin_date.setText(sdf.format(myCalendar.getTime()));
@@ -131,16 +124,22 @@ public class SearchFilterFragment extends DialogFragment {
 
     };
 
+
+    public interface SaveFilterListener {
+        void onFilterSaved(Bundle bundle);
+    }
+
     private void saveFilter(){
-        editor.putString(NYTSearchActivity.BEGIN_DATE,begin_date.getText().toString());
-        //Log.i(NYTSearchActivity.TAG,"Begin date = "+begin_date.getText().toString());
-        editor.putInt(NYTSearchActivity.SORT_ORDER,sort_spin.getSelectedItemPosition());
-        //Log.i(NYTSearchActivity.TAG,""+"Selected spinner = "+sort_spin.getSelectedItemPosition());
-        editor.putBoolean(NYTSearchActivity.ARTS,arts.isChecked());
-        editor.putBoolean(NYTSearchActivity.SPORTS,sports.isChecked());
-        editor.putBoolean(NYTSearchActivity.FASHION,fashion.isChecked());
-        //Log.i(NYTSearchActivity.TAG,"ARTS = "+arts.isChecked()+" sPORTS = "+sports.isChecked()+" fashion = "+fashion.isChecked());
-        editor.commit();
+        //Filling data to bundle before closing the Filter fragment
+        data.putString(NYTSearchActivity.BEGIN_DATE,begin_date.getText().toString());
+        data.putInt(NYTSearchActivity.SORT_ORDER,sort_spin.getSelectedItemPosition());
+        data.putBoolean(NYTSearchActivity.ARTS,arts.isChecked());
+        data.putBoolean(NYTSearchActivity.SPORTS,sports.isChecked());
+        data.putBoolean(NYTSearchActivity.FASHION,fashion.isChecked());
+        //Log.i(NYTSearchActivity.TAG,"arts = "+arts.isChecked()+" sports = "+sports.isChecked()+" fashion = "+fashion.isChecked());
+        //Log.i(NYTSearchActivity.TAG,"SORT = "+sort_spin.getSelectedItemPosition());
+        SaveFilterListener listener = (SaveFilterListener) getActivity();
+        listener.onFilterSaved(data);
         dismiss();
     }
 }

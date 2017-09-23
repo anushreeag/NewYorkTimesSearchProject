@@ -1,14 +1,28 @@
 package com.cosmic.newyorktimessearch.activity;
 
+import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.databinding.DataBindingUtil;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.net.Uri;
+import android.support.customtabs.CustomTabsIntent;
 import android.support.v4.app.FragmentManager;
 import android.app.ProgressDialog;
+import android.support.v4.content.ContextCompat;
+import android.support.v4.view.MenuItemCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.support.v7.widget.DividerItemDecoration;
 import android.support.v7.widget.GridLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.SearchView;
+import android.support.v7.widget.ShareActionProvider;
 import android.support.v7.widget.StaggeredGridLayoutManager;
+import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.util.StringBuilderPrinter;
 import android.view.Menu;
@@ -19,17 +33,23 @@ import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.GridView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.cosmic.newyorktimessearch.R;
 import com.cosmic.newyorktimessearch.adapter.ArticleAdapter;
+import com.cosmic.newyorktimessearch.broadcastReceiver.NetworkStateReceiver;
+import com.cosmic.newyorktimessearch.databinding.ActivityNytsearchBinding;
 import com.cosmic.newyorktimessearch.fragment.SearchFilterFragment;
 import com.cosmic.newyorktimessearch.model.Article;
 import com.cosmic.newyorktimessearch.utils.EndlessRecyclerViewScrollListener;
 import com.cosmic.newyorktimessearch.utils.ItemClickSupport;
+import com.cosmic.newyorktimessearch.utils.MyDividerItemDecoration;
+import com.cosmic.newyorktimessearch.utils.VerticalSpaceItemDecoration;
 import com.loopj.android.http.AsyncHttpClient;
 import com.loopj.android.http.JsonHttpResponseHandler;
 import com.loopj.android.http.RequestParams;
+
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -40,13 +60,13 @@ import java.lang.reflect.Array;
 import java.util.ArrayList;
 
 import cz.msebera.android.httpclient.Header;
+import jp.wasabeef.recyclerview.animators.SlideInUpAnimator;
 
-public class NYTSearchActivity extends AppCompatActivity {
+public class NYTSearchActivity extends AppCompatActivity implements NetworkStateReceiver.NetworkStateReceiverListener,SearchFilterFragment.SaveFilterListener{
 
-    public static final String API_KEY = "72b7f2dfb0764545a2e8378566e2d0af";
+    private static final String API_KEY = "72b7f2dfb0764545a2e8378566e2d0af";
     public static final String NYTSEARCH_URL = "https://api.nytimes.com/svc/search/v2/articlesearch.json";
     public static final String TAG = "NYTSearchActivity";
-
     public static final String PREFERENCES = "nytsearch_pref";
     public static final String ARTS = "arts";
     public static final String SPORTS = "sports";
@@ -55,11 +75,12 @@ public class NYTSearchActivity extends AppCompatActivity {
     public static final String SORT_ORDER = "sort_order";
     public static final String WEB_URL = "web_url";
     EndlessRecyclerViewScrollListener scrollListener;
-    SharedPreferences pref;
+
     ArrayList<Article> articleList;
     ProgressDialog progress;
-    EditText query;
+    TextView empty;
     Button searchbtn;
+    Bundle data;
     RecyclerView nyGrid;
     ArticleAdapter adp ;
     AsyncHttpClient client;
@@ -67,37 +88,75 @@ public class NYTSearchActivity extends AppCompatActivity {
     FragmentManager fm;
     StaggeredGridLayoutManager gridLayoutManager;
     RequestParams params;
+    Toolbar toolbar;
+    Context mCtx;
+    private NetworkStateReceiver networkStateReceiver;
+    private Menu menu;
+    private ActivityNytsearchBinding binding;
+    SharedPreferences pref;
+    SharedPreferences.Editor editor;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_nytsearch);
-
-
-        pref = getSharedPreferences(PREFERENCES,MODE_PRIVATE);
+        binding = DataBindingUtil.setContentView(this, R.layout.activity_nytsearch);
         client = new AsyncHttpClient();
         progress = new ProgressDialog(this);
-        query = (EditText)findViewById(R.id.query);
-        searchbtn = (Button) findViewById(R.id.search_btn);
-        nyGrid = (RecyclerView) findViewById(R.id.nyView);
+        networkStateReceiver = new NetworkStateReceiver();
+        networkStateReceiver.addListener(this);
+        this.registerReceiver(networkStateReceiver, new IntentFilter(android.net.ConnectivityManager.CONNECTIVITY_ACTION));
+        toolbar = binding.appBar.toolbar;
+        mCtx = NYTSearchActivity.this;
+        setSupportActionBar(toolbar);
+        data = new Bundle();
+
+        getSupportActionBar().setDisplayShowHomeEnabled(true);
+        getSupportActionBar().setDisplayShowTitleEnabled(false);
+        TextView title  = (TextView) binding.appBar.toolbarTitle;
+        title.setText("NewYorkTimes Search");
+        nyGrid = binding.nyView;
+        empty = binding.emptyView;
         articleList = new ArrayList<>();
         adp = new ArticleAdapter(this,articleList);
-        if(!isOnline()) {
-            Toast.makeText(NYTSearchActivity.this, "Internet is not available, Please Connect to Wifi or Data ", Toast.LENGTH_LONG).show();
-            searchbtn.setEnabled(false);
-        }
         fm = getSupportFragmentManager();
         ItemClickSupport.addTo(nyGrid).setOnItemClickListener(
-                new ItemClickSupport.OnItemClickListener() {
-                    @Override
-                    public void onItemClicked(RecyclerView recyclerView, int position, View v) {
-                            Article article = articleList.get(position);
-                            Toast.makeText(NYTSearchActivity.this,"Loading the webpage. Please wait..",Toast.LENGTH_SHORT).show();
-                            Intent intent = new Intent();
-                            intent.setClass(NYTSearchActivity.this,WebViewActivity.class);
+                (recyclerView, position, v) -> {
+                        Article article = articleList.get(position);
+                        Toast.makeText(mCtx,"Loading the webpage. Please wait..",Toast.LENGTH_SHORT).show();
+                        /*
+                            WebView Implementation begins
+                         */
+                           /* Intent intent = new Intent();
+                            intent.setClass(mCtx,WebViewActivity.class);
                             intent.putExtra(WEB_URL,article.getWeb_url());
-                            startActivity(intent);
-                    }
+                            startActivity(intent);*/
+                        /*
+                            WebView Implementation end
+                         */
+                       /*
+                        *Chrome custom tab implementation begins
+                        */
+                        Bitmap bitmap = BitmapFactory.decodeResource(getResources(), R.drawable.action_share);
+                        Intent shareIntent = new Intent(Intent.ACTION_SEND);
+                        shareIntent.setType("text/plain");
+                        shareIntent.putExtra(Intent.EXTRA_TEXT, article.getWeb_url());
+                        int requestCode = 100;
+
+                        PendingIntent pendingIntent = PendingIntent.getActivity(mCtx,
+                                requestCode,
+                                shareIntent,
+                                PendingIntent.FLAG_UPDATE_CURRENT);
+                        CustomTabsIntent.Builder builder = new CustomTabsIntent.Builder();
+                        builder.setToolbarColor(ContextCompat.getColor(mCtx, R.color.colorAccent));
+                        builder.setActionButton(bitmap, "Share this Link", pendingIntent, true);
+                        // set toolbar color and/or setting custom actions before invoking build()
+                        // Once ready, call CustomTabsIntent.Builder.build() to create a CustomTabsIntent
+                        CustomTabsIntent customTabsIntent = builder.build();
+                        // and launch the desired Url with CustomTabsIntent.launchUrl()
+                        customTabsIntent.launchUrl(mCtx, Uri.parse(article.getWeb_url()));
+
+
                 }
         );
         gridLayoutManager = new StaggeredGridLayoutManager(2,1);
@@ -112,15 +171,53 @@ public class NYTSearchActivity extends AppCompatActivity {
             }
         };
         nyGrid.addOnScrollListener(scrollListener);
+
+
+        if(articleList.size()==0)
+        {
+            nyGrid.setVisibility(View.GONE);
+            empty.setVisibility(View.VISIBLE);
+        }
+        VerticalSpaceItemDecoration divider = new VerticalSpaceItemDecoration(5);
+        nyGrid.addItemDecoration(divider);
+       // nyGrid.addItemDecoration(new MyDividerItemDecoration(nyGrid.getContext(),R.drawable.mydivider));
+        nyGrid.setItemAnimator(new SlideInUpAnimator());
+        fillBundleFromPreferences();
+    }
+
+    private void fillBundleFromPreferences(){
+        pref = getSharedPreferences(PREFERENCES,MODE_PRIVATE);
+        editor = pref.edit();
+        data.putString(BEGIN_DATE,pref.getString(BEGIN_DATE,""));
+        data.putInt(SORT_ORDER,pref.getInt(SORT_ORDER,0));
+        data.putBoolean(ARTS,pref.getBoolean(ARTS,false));
+        data.putBoolean(SPORTS,pref.getBoolean(SPORTS,false));
+        data.putBoolean(FASHION,pref.getBoolean(FASHION,false));
+    }
+
+    private void fillPreferencesFromBundle(){
+        editor.putString(BEGIN_DATE,data.getString(BEGIN_DATE,""));
+        editor.putInt(SORT_ORDER,data.getInt(SORT_ORDER,0));
+        editor.putBoolean(ARTS,data.getBoolean(ARTS,false));
+        editor.putBoolean(SPORTS,data.getBoolean(SPORTS,false));
+        editor.putBoolean(FASHION,data.getBoolean(FASHION,false));
+        editor.commit();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        if(isOnline()) {
-            searchbtn.setEnabled(true);
-        }
+
     }
+
+    public void onDestroy() {
+        super.onDestroy();
+        fillPreferencesFromBundle();
+        networkStateReceiver.removeListener(this);
+        this.unregisterReceiver(networkStateReceiver);
+    }
+
+
 
     public void loadNextDataFromApi(int offset) {
         params.remove("page");
@@ -150,7 +247,7 @@ public class NYTSearchActivity extends AppCompatActivity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        Toast.makeText(NYTSearchActivity.this,error,Toast.LENGTH_SHORT).show();
+                        Toast.makeText(mCtx,error,Toast.LENGTH_SHORT).show();
                     }
                 });
             }
@@ -162,13 +259,10 @@ public class NYTSearchActivity extends AppCompatActivity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        Toast.makeText(NYTSearchActivity.this,error,Toast.LENGTH_SHORT).show();
+                        Toast.makeText(mCtx,error,Toast.LENGTH_SHORT).show();
                     }
                 });
-
             }
-
-
         });
     }
 
@@ -176,46 +270,73 @@ public class NYTSearchActivity extends AppCompatActivity {
     public boolean onCreateOptionsMenu(Menu menu) {
         MenuInflater in = getMenuInflater();
         in.inflate(R.menu.article_menu,menu);
-        return true;
+
+        MenuItem searchItem = menu.findItem(R.id.action_search);
+        if(!isOnline()) {
+            searchItem.setEnabled(false);
+        }
+        else{
+            searchItem.setEnabled(true);
+        }
+        final SearchView searchView = (SearchView) MenuItemCompat.getActionView(searchItem);
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                searchArticle(query);
+                // workaround to avoid issues with some emulators and keyboard devices firing twice if a keyboard enter is used
+                // see https://code.google.com/p/android/issues/detail?id=24599
+                searchView.clearFocus();
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                return false;
+            }
+        });
+
+
+        return super.onCreateOptionsMenu(menu);
+
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
 
-        filterFrag = new SearchFilterFragment();
-        filterFrag.show(fm,"filter");
+        if(item.getItemId()==R.id.filter) {
+            filterFrag = new SearchFilterFragment();
+            filterFrag.setArguments(data);
+            filterFrag.show(fm, "filter");
+        }
         return true;
     }
 
-    public void searchArticle(View view) {
-        String query_text = query.getText().toString();
+    public void searchArticle(String query) {
         params = new RequestParams();
-        if (!query_text.isEmpty()) {
-            searchbtn.setEnabled(false);
+        if (!query.isEmpty()) {
             progress.setMessage("Searching in progress.Please wait...");
             progress.show();
             params.add("apikey", API_KEY);
-            params.add("q", query_text);
+            params.add("q", query);
             int curSize = articleList.size();
             articleList.clear();
             adp.notifyItemRangeRemoved(0, curSize);
             scrollListener.resetState();
-            String date = pref.getString(BEGIN_DATE, "");
+            String date = data.getString(BEGIN_DATE, "");
             if (!(date.isEmpty())) {
                 StringBuilder datestr = new StringBuilder();
                 datestr.append(date.split("/")[2]).append(date.split("/")[0]).append(date.split("/")[1]);
                 params.add("begin_date", datestr.toString());
             }
-            int sort_order = pref.getInt(SORT_ORDER, 0);
+            int sort_order = data.getInt(SORT_ORDER, 0);
             if (sort_order == 1)
                 params.add("sort", "newest");
             else
                 params.add("sort", "oldest");
 
-            Boolean arts = pref.getBoolean(ARTS, false);
-            Boolean sports = pref.getBoolean(SPORTS, false);
-            Boolean fashion = pref.getBoolean(FASHION, false);
-            //params.add("page", "1");
+            Boolean arts = data.getBoolean(ARTS, false);
+            Boolean sports = data.getBoolean(SPORTS, false);
+            Boolean fashion = data.getBoolean(FASHION, false);
             if (arts || sports || fashion) {
                 params.add("fq", getnews_desk(arts, sports, fashion));
             }
@@ -226,14 +347,7 @@ public class NYTSearchActivity extends AppCompatActivity {
                     public void onSuccess(int statusCode, Header[] headers, JSONObject response) {
                         Log.i(TAG, "Search Success");
 
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                progress.dismiss();
-                                searchbtn.setEnabled(true);
-                                Toast.makeText(NYTSearchActivity.this, "Search Success", Toast.LENGTH_SHORT).show();
-                            }
-                        });
+
                         try {
                             JSONArray result = (JSONArray) response.getJSONObject("response").getJSONArray("docs");
                             articleList.addAll(Article.getArticleList(result));
@@ -242,6 +356,25 @@ public class NYTSearchActivity extends AppCompatActivity {
                         } catch (JSONException e) {
                             e.printStackTrace();
                         }
+
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                progress.dismiss();
+                                // searchbtn.setEnabled(true);
+
+                                if(articleList.size()==0){
+                                    nyGrid.setVisibility(View.GONE);
+                                    empty.setVisibility(View.VISIBLE);
+                                    empty.setText("No results found !! \uD83D\uDE1E  \uD83D\uDE1E");
+                                }
+                                else{
+                                    nyGrid.setVisibility(View.VISIBLE);
+                                    empty.setVisibility(View.GONE);
+                                    Toast.makeText(mCtx, "Search Success", Toast.LENGTH_SHORT).show();
+                                }
+                            }
+                        });
                     }
 
                     @Override
@@ -251,8 +384,8 @@ public class NYTSearchActivity extends AppCompatActivity {
                             @Override
                             public void run() {
                                 progress.dismiss();
-                                searchbtn.setEnabled(true);
-                                Toast.makeText(NYTSearchActivity.this, "Failed to Search", Toast.LENGTH_SHORT).show();
+                               // searchbtn.setEnabled(true);
+                                Toast.makeText(mCtx, "Failed to Search", Toast.LENGTH_SHORT).show();
                             }
                         });
                     }
@@ -264,18 +397,24 @@ public class NYTSearchActivity extends AppCompatActivity {
                             @Override
                             public void run() {
                                 progress.dismiss();
-                                searchbtn.setEnabled(true);
-                                Toast.makeText(NYTSearchActivity.this, "Failed to Search", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(mCtx, "Failed to Search", Toast.LENGTH_SHORT).show();
                             }
                         });
                     }
-
-
-
                 });
-
-
         }
+    }
+
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        MenuItem searchItem = menu.findItem(R.id.action_search);
+        if(!isOnline()) {
+            searchItem.setEnabled(false);
+        }
+        else{
+            searchItem.setEnabled(true);
+        }
+        return super.onPrepareOptionsMenu(menu);
     }
 
     String getnews_desk(Boolean arts, Boolean sports, Boolean fashion){
@@ -314,5 +453,25 @@ public class NYTSearchActivity extends AppCompatActivity {
         } catch (IOException e)          { e.printStackTrace(); }
         catch (InterruptedException e) { e.printStackTrace(); }
         return false;
+    }
+
+
+    @Override
+    public void networkAvailable() {
+        Log.i(TAG,"Network is on");
+        invalidateOptionsMenu();
+    }
+
+    @Override
+    public void networkUnavailable() {
+        Log.i(TAG,"Network is off");
+        invalidateOptionsMenu();
+    }
+
+    @Override
+    public void onFilterSaved(Bundle bundle) {
+        data = bundle;
+        //Log.i(NYTSearchActivity.TAG,"SORT = "+bundle.getInt(SORT_ORDER));
+        //Log.i(TAG,"arts = "+bundle.getBoolean(ARTS)+" sports = "+bundle.getBoolean(SPORTS)+" fashion = "+bundle.getBoolean(FASHION));
     }
 }

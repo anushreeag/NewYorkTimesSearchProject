@@ -11,4 +11,6 @@
     <string name="sports">Sports</string>
     <string name="fashion">Fashion and Style</string>
     <string name="save">SAVE</string>
+    <string name="filter">Filter</string>
+    <string name="no_data_available">"Use 🔍 for searching New York Times ! \nIf internet/Wifi is off, browsing is not possible"</string>
 </resources>

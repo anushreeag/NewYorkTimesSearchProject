@@ -16,10 +16,11 @@
 
         <ImageView
             android:id="@+id/thumbnail"
-            android:layout_width="200dp"
+            android:layout_width="150dp"
             android:layout_height="100dp"
+            android:layout_gravity="center"
             tools:src="@mipmap/ic_launcher_round"
-            android:scaleType="fitCenter"/>
+            android:scaleType="fitXY"/>
 
         <TextView
             android:id="@+id/label"

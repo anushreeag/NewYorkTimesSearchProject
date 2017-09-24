@@ -9,6 +9,7 @@ import org.json.JSONObject;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by anushree on 9/19/2017.
@@ -81,17 +82,42 @@ public class Article implements Parcelable {
     }
 
 
-    public static ArrayList<Article> getArticleList(JSONArray array){
-        ArrayList<Article> articlelist =  new ArrayList<>();
 
-        for(int i=0;i<array.length();i++){
+    public Article(Doc doc) throws JSONException {
+        this.web_url = doc.getWebUrl();
+        this.title = doc.getHeadline().getMain();
+        List<Multimedium> multimedia = doc.getMultimedia();
+        if(multimedia.size()>0) {
+            this.thumbnail = "http://www.nytimes.com/" + multimedia.get(0).getUrl();
+        }
+        else {
+            this.thumbnail = "";
+        }
+
+        String newsDesk = doc.getNewDesk();
+        if(newsDesk!=null) {
+            this.new_desk = newsDesk;
+        }
+        else {
+            this.new_desk = "";
+        }
+        this.snippet = doc.getSnippet();
+
+    }
+
+
+
+    public static ArrayList<Article> getArticleList(List<Doc> docs){
+        ArrayList<Article> articlelist =  new ArrayList<>();
+        for(int i=0;i<docs.size();i++){
             try {
-                articlelist.add(new Article(array.getJSONObject(i)));
+                articlelist.add(new Article(docs.get(i)));
             } catch (JSONException e) {
                 e.printStackTrace();
             }
-
         }
+
+
         return articlelist;
     }
 

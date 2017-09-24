@@ -114,13 +114,24 @@ public class ArticleAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         void bind(Article article) {
 
             title.setText(article.getTitle());
-            label.setText(article.getNew_desk().toUpperCase());
+
+
             desc.setText(article.getSnippet());
 
-            if(article.getNew_desk().toUpperCase().contains("ARTS")) label.setBackgroundColor(ctx.getResources().getColor(R.color.blue));
-            else if(article.getNew_desk().toUpperCase().contains("SPORTS")) label.setBackgroundColor(ctx.getResources().getColor(R.color.orange));
-            else if(article.getNew_desk().toUpperCase().contains("FASHION & STYLE")) label.setBackgroundColor(ctx.getResources().getColor(R.color.brown));
-            else label.setBackgroundColor(ctx.getResources().getColor(R.color.red));
+            if(!article.getNew_desk().isEmpty()) {
+                label.setVisibility(View.VISIBLE);
+                label.setText(article.getNew_desk().toUpperCase());
+                if (article.getNew_desk().toUpperCase().contains("ARTS"))
+                    label.setBackgroundColor(ctx.getResources().getColor(R.color.blue));
+                else if (article.getNew_desk().toUpperCase().contains("SPORTS"))
+                    label.setBackgroundColor(ctx.getResources().getColor(R.color.orange));
+                else if (article.getNew_desk().toUpperCase().contains("FASHION & STYLE"))
+                    label.setBackgroundColor(ctx.getResources().getColor(R.color.brown));
+                else label.setBackgroundColor(ctx.getResources().getColor(R.color.red));
+            }
+            else{
+                label.setVisibility(View.GONE);
+            }
         }
     }
 
@@ -146,11 +157,22 @@ public class ArticleAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
         void bind(Article article){
             image.setImageResource(0);
             title.setText(article.getTitle());
-            label.setText(article.getNew_desk().toUpperCase());
-            if(article.getNew_desk().toUpperCase().contains("ARTS")) label.setBackgroundColor(ctx.getResources().getColor(R.color.blue));
-            else if(article.getNew_desk().toUpperCase().contains("SPORTS")) label.setBackgroundColor(ctx.getResources().getColor(R.color.orange));
-            else if(article.getNew_desk().toUpperCase().contains("FASHION & STYLE")) label.setBackgroundColor(ctx.getResources().getColor(R.color.brown));
-            else label.setBackgroundColor(ctx.getResources().getColor(R.color.red));
+
+            if(!article.getNew_desk().isEmpty()) {
+                label.setVisibility(View.VISIBLE);
+                label.setText(article.getNew_desk().toUpperCase());
+                if (article.getNew_desk().toUpperCase().contains("ARTS"))
+                    label.setBackgroundColor(ctx.getResources().getColor(R.color.blue));
+                else if (article.getNew_desk().toUpperCase().contains("SPORTS"))
+                    label.setBackgroundColor(ctx.getResources().getColor(R.color.orange));
+                else if (article.getNew_desk().toUpperCase().contains("FASHION & STYLE"))
+                    label.setBackgroundColor(ctx.getResources().getColor(R.color.brown));
+                else label.setBackgroundColor(ctx.getResources().getColor(R.color.red));
+            }
+            else{
+                label.setVisibility(View.GONE);
+            }
+
 
             desc.setText(article.getSnippet());
             if(!article.getThumbnail().equals(""))

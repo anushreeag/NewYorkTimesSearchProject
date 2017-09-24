@@ -42,25 +42,25 @@ import com.cosmic.newyorktimessearch.broadcastReceiver.NetworkStateReceiver;
 import com.cosmic.newyorktimessearch.databinding.ActivityNytsearchBinding;
 import com.cosmic.newyorktimessearch.fragment.SearchFilterFragment;
 import com.cosmic.newyorktimessearch.model.Article;
+import com.cosmic.newyorktimessearch.model.ArticleModel;
+import com.cosmic.newyorktimessearch.utils.ApiService;
 import com.cosmic.newyorktimessearch.utils.EndlessRecyclerViewScrollListener;
 import com.cosmic.newyorktimessearch.utils.ItemClickSupport;
-import com.cosmic.newyorktimessearch.utils.MyDividerItemDecoration;
+import com.cosmic.newyorktimessearch.utils.RetroClient;
 import com.cosmic.newyorktimessearch.utils.VerticalSpaceItemDecoration;
 import com.loopj.android.http.AsyncHttpClient;
-import com.loopj.android.http.JsonHttpResponseHandler;
 import com.loopj.android.http.RequestParams;
 
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
-import cz.msebera.android.httpclient.Header;
 import jp.wasabeef.recyclerview.animators.SlideInUpAnimator;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class NYTSearchActivity extends AppCompatActivity implements NetworkStateReceiver.NetworkStateReceiverListener,SearchFilterFragment.SaveFilterListener{
 
@@ -75,11 +75,11 @@ public class NYTSearchActivity extends AppCompatActivity implements NetworkState
     public static final String SORT_ORDER = "sort_order";
     public static final String WEB_URL = "web_url";
     EndlessRecyclerViewScrollListener scrollListener;
+    Map<String,Object> paramsMap;
 
     ArrayList<Article> articleList;
     ProgressDialog progress;
     TextView empty;
-    Button searchbtn;
     Bundle data;
     RecyclerView nyGrid;
     ArticleAdapter adp ;
@@ -219,47 +219,42 @@ public class NYTSearchActivity extends AppCompatActivity implements NetworkState
 
 
 
-    public void loadNextDataFromApi(int offset) {
-        params.remove("page");
-        params.add("page",""+offset);
 
-        Log.i(TAG,"loadNextDataFromApi params = "+params.toString());
-        client.get(NYTSEARCH_URL,params,new JsonHttpResponseHandler(){
+
+    public void loadNextDataFromApi(int offset) {
+        paramsMap.remove("page");
+        paramsMap.put("page",offset);
+        ApiService service = RetroClient.getApiService();
+        Call<ArticleModel> call = service.getMyJSON(paramsMap);
+        Log.i(TAG,"loadNextDataFromApi params "+paramsMap.toString());
+
+        call.enqueue(new Callback<ArticleModel>() {
             @Override
-            public void onSuccess(int statusCode, Header[] headers, JSONObject response) {
-                try {
-                    JSONArray result = (JSONArray) response.getJSONObject("response").getJSONArray("docs");
+            public void onResponse(Call<ArticleModel> call, Response<ArticleModel> response) {
+                int statusCode = response.code();
+                Log.i(TAG,"Retrofit response code  : "+statusCode);
+                if(response.isSuccessful()){
+                    ArticleModel myResponse = response.body();
+                    Log.i(TAG,"Retrofit success : "+myResponse.toString());
+
                     int cursize = articleList.size();
-                    ArrayList<Article> moreArticles = Article.getArticleList(result);
+                    ArrayList<Article> moreArticles = Article.getArticleList(myResponse.getResponse().getDocs());
                     articleList.addAll(moreArticles);
                     adp.notifyItemRangeInserted(cursize, articleList.size()-1);
                     Log.i(TAG, articleList.toString());
-                } catch (JSONException e) {
-                    e.printStackTrace();
                 }
             }
 
             @Override
-            public void onFailure(int statusCode, Header[] headers, Throwable throwable, JSONObject errorResponse) {
-                Log.i(TAG, "Search Failed");
-                Log.i(TAG,""+errorResponse.toString());
-                final String error = errorResponse.toString();
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        Toast.makeText(mCtx,error,Toast.LENGTH_SHORT).show();
-                    }
-                });
-            }
+            public void onFailure(Call<ArticleModel> call, Throwable t) {
+                Log.i(TAG,t.toString());
 
-            public void onFailure(int statusCode, Header[] headers, String responseString, Throwable throwable) {
                 Log.i(TAG, "Search Failed");
-                Log.i(TAG,""+responseString);
-                final String error = responseString;
+                Log.i(TAG,""+t.toString());
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        Toast.makeText(mCtx,error,Toast.LENGTH_SHORT).show();
+                        Toast.makeText(mCtx,"No more pages to load",Toast.LENGTH_SHORT).show();
                     }
                 });
             }
@@ -312,57 +307,58 @@ public class NYTSearchActivity extends AppCompatActivity implements NetworkState
     }
 
     public void searchArticle(String query) {
-        params = new RequestParams();
+        paramsMap = new HashMap<>();
         if (!query.isEmpty()) {
             progress.setMessage("Searching in progress.Please wait...");
             progress.show();
-            params.add("apikey", API_KEY);
-            params.add("q", query);
             int curSize = articleList.size();
             articleList.clear();
             adp.notifyItemRangeRemoved(0, curSize);
             scrollListener.resetState();
             String date = data.getString(BEGIN_DATE, "");
-            if (!(date.isEmpty())) {
-                StringBuilder datestr = new StringBuilder();
-                datestr.append(date.split("/")[2]).append(date.split("/")[0]).append(date.split("/")[1]);
-                params.add("begin_date", datestr.toString());
-            }
-            int sort_order = data.getInt(SORT_ORDER, 0);
-            if (sort_order == 1)
-                params.add("sort", "newest");
-            else
-                params.add("sort", "oldest");
-
             Boolean arts = data.getBoolean(ARTS, false);
             Boolean sports = data.getBoolean(SPORTS, false);
             Boolean fashion = data.getBoolean(FASHION, false);
-            if (arts || sports || fashion) {
-                params.add("fq", getnews_desk(arts, sports, fashion));
+
+
+            ApiService service = RetroClient.getApiService();
+            paramsMap.put("q",query);
+            if (!(date.isEmpty())) {
+                StringBuilder datestr = new StringBuilder();
+                datestr.append(date.split("/")[2]).append(date.split("/")[0]).append(date.split("/")[1]);
+                paramsMap.put("begin_date", datestr.toString());
             }
-            Log.i(TAG, params.toString());
 
-                client.get(NYTSEARCH_URL, params, new JsonHttpResponseHandler() {
-                    @Override
-                    public void onSuccess(int statusCode, Header[] headers, JSONObject response) {
-                        Log.i(TAG, "Search Success");
+            int sort_order = data.getInt(SORT_ORDER, 0);
+            if (sort_order == 1)
+                paramsMap.put("sort", "newest");
+            else
+                paramsMap.put("sort", "oldest");
+
+            if (arts || sports || fashion) {
+                paramsMap.put("fq", getnews_desk(arts, sports, fashion));
+            }
+
+            Call<ArticleModel> call = service.getMyJSON(paramsMap);
 
 
-                        try {
-                            JSONArray result = (JSONArray) response.getJSONObject("response").getJSONArray("docs");
-                            articleList.addAll(Article.getArticleList(result));
-                            adp.notifyItemRangeInserted(0, articleList.size());
-                            Log.i(TAG, articleList.toString());
-                        } catch (JSONException e) {
-                            e.printStackTrace();
-                        }
+            call.enqueue(new Callback<ArticleModel>() {
+                @Override
+                public void onResponse(Call<ArticleModel> call, Response<ArticleModel> response) {
+                    int statusCode = response.code();
+                    Log.i(TAG,"Retrofit response code  : "+statusCode);
+                    if(response.isSuccessful()){
+                        ArticleModel myResponse = response.body();
+                        Log.i(TAG,"Retrofit success : "+myResponse.toString());
+                        articleList.addAll(Article.getArticleList(myResponse.getResponse().getDocs()));
+                        adp.notifyItemRangeInserted(0, articleList.size());
+                        Log.i(TAG, articleList.toString());
+
 
                         runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
                                 progress.dismiss();
-                                // searchbtn.setEnabled(true);
-
                                 if(articleList.size()==0){
                                     nyGrid.setVisibility(View.GONE);
                                     empty.setVisibility(View.VISIBLE);
@@ -376,32 +372,21 @@ public class NYTSearchActivity extends AppCompatActivity implements NetworkState
                             }
                         });
                     }
+                }
 
-                    @Override
-                    public void onFailure(int statusCode, Header[] headers, String responseString, Throwable throwable) {
-                        Log.i(TAG, "Search Failed");
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                progress.dismiss();
-                               // searchbtn.setEnabled(true);
-                                Toast.makeText(mCtx, "Failed to Search", Toast.LENGTH_SHORT).show();
-                            }
-                        });
-                    }
+                @Override
+                public void onFailure(Call<ArticleModel> call, Throwable t) {
+                    Log.i(TAG,t.toString());
 
-                    @Override
-                    public void onFailure(int statusCode, Header[] headers, Throwable throwable, JSONObject errorResponse) {
-                        Log.i(TAG, "Search Failed");
-                        runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-                                progress.dismiss();
-                                Toast.makeText(mCtx, "Failed to Search", Toast.LENGTH_SHORT).show();
-                            }
-                        });
-                    }
-                });
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            progress.dismiss();
+                            Toast.makeText(mCtx, "Failed to Search", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                }
+            });
         }
     }
 

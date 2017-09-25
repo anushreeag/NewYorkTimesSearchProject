@@ -47,15 +47,16 @@ The following **additional** features are implemented:
 * [x] If no result found, displaying the message "No results found"
 * [x] Search is based on network on or off. Search menu is disabled if network/wifi is off
 * [x] Different colors for different labels
+* [x] Added the recycler view items in cardview
 
 
 ## Video Walkthrough
 
 Here's a walkthrough of implemented user stories:
 
-<img src='http://i.imgur.com/UUZSbco.gif' title='Video Walkthrough' width='' alt='Video Walkthrough' />
+<img src='http://i.imgur.com/PS1Omr2.gif' title='Video Walkthrough' width='' alt='Video Walkthrough' />
 
-Video walkthrough link : [https://i.imgur.com/UUZSbco.gif]
+Video walkthrough link : [https://i.imgur.com/PS1Omr2.gif]
 
 GIF created with [LiceCap](http://www.cockos.com/licecap/).
 
